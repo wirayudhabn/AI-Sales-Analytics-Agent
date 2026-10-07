@@ -10,7 +10,7 @@ const Overview = () => {
     return (
         <div className="flex">
             {/* Sidebar */}
-            <Sidebar hide={hide} />
+            <Sidebar hide={hide} page={1} />
 
             <div className="w-full">
                 {/* Header */}
