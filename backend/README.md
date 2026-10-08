@@ -275,3 +275,90 @@ mongodb
 ```
 
 berarti extension MongoDB sudah aktif.
+
+Konfigurasi Laravel
+
+Ulangi:
+
+```bash
+composer require mongodb/laravel-mongodb
+```
+
+Setelah package berhasil di-install, konfigurasi koneksi MongoDB pada file:
+
+```text
+.env
+```
+
+Contoh koneksi MongoDB lokal:
+
+```env
+DB_CONNECTION=mongodb
+DB_HOST=127.0.0.1
+DB_PORT=27017
+DB_DATABASE=db_iris
+DB_USERNAME=
+DB_PASSWORD=
+```
+
+Jika menggunakan MongoDB yang membutuhkan username dan password, isi:
+
+```env
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+```
+
+Ganti juga beberapa variabel
+
+```env
+SESSION_DRIVER=database
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+```
+
+Menjadi:
+
+```env
+SESSION_DRIVER=file
+CACHE_STORE=file
+QUEUE_CONNECTION=sync
+```
+
+Lalu di config/database.php, tambahkan di connections dengan ini:
+
+```
+'mongodb' => [
+    'driver'   => 'mongodb',
+    'host'     => env('DB_HOST', '127.0.0.1'),
+    'port'     => env('DB_PORT', 27017),
+    'database' => env('DB_DATABASE', 'forge'),
+    'username' => env('DB_USERNAME', ''),
+    'password' => env('DB_PASSWORD', ''),
+    'options'  => [
+        'database' => env('DB_AUTHENTICATION_DATABASE', 'admin'), // opsional untuk auth
+    ],
+],
+```
+
+Lalu cara ceknya bagini:
+
+```
+<?php
+
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+Route::get('/test-mongo', function () {
+    try {
+        DB::connection('mongodb')->getPdo();
+        return "Status: Terkoneksi ke MongoDB!";
+    } catch (\Exception $e) {
+        return "Gagal terkoneksi: " . $e->getMessage();
+    }
+});
+
+```
