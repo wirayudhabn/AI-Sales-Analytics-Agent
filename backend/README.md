@@ -1,58 +1,277 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Laravel MongoDB Setup dengan Laragon
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Tutorial untuk menghubungkan **Laravel/PHP di Laragon dengan MongoDB** pada Windows, sehingga package `mongodb/laravel-mongodb` dapat di-install menggunakan Composer.
 
-## About Laravel
+> **Environment contoh:** Windows + Laragon + PHP 8.5 + MongoDB
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 📋 Daftar Isi
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- [1. Masalah yang Terjadi](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#1-masalah-yang-terjadi)
+- [2. Cek Versi PHP](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#2-cek-versi-php)
+- [3. Cek Architecture dan Thread Safety](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#3-cek-architecture-dan-thread-safety)
+- [4. Download MongoDB PHP Extension](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#4-download-mongodb-php-extension)
+- [5. Pasang php_mongodb.dll](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#5-pasang-php_mongodbdll)
+- [6. Aktifkan Extension di php.ini](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#6-aktifkan-extension-di-phpini)
+- [7. Restart Laragon](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#7-restart-laragon)
+- [8. Verifikasi Extension MongoDB](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#8-verifikasi-extension-mongodb)
+- [9. Install Laravel MongoDB](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#9-install-laravel-mongodb)
+- [10. Konfigurasi Laravel](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#10-konfigurasi-laravel)
+- [11. Test Koneksi MongoDB](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#11-test-koneksi-mongodb)
+- [12. Troubleshooting](https://chatgpt.com/c/6ac706f7-1134-83e8-95b7-b37ba1250d60#12-troubleshooting)
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+# 1. Masalah yang Terjadi
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Ketika menjalankan:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer require mongodb/laravel-mongodb
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+bisa muncul error:
 
-## Contributing
+```text
+requires ext-mongodb ^1.21|^2 which is missing from your platform
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+atau:
 
-## Code of Conduct
+```text
+require ext-mongodb ... it is missing from your system.
+Install or enable PHP's mongodb extension.
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Artinya, **PHP yang digunakan oleh Laragon belum memiliki atau belum mengaktifkan MongoDB extension**.
 
-## Security Vulnerabilities
+Composer membutuhkan extension tersebut agar package Laravel MongoDB dapat digunakan.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+# 2. Cek Versi PHP
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Buka **Laragon Terminal** atau Git Bash.
+
+Jalankan:
+
+```bash
+php -v
+```
+
+Contoh:
+
+```text
+PHP 8.5.11 (cli)
+```
+
+Pastikan PHP yang digunakan adalah PHP yang ada di Laragon.
+
+Untuk mengetahui lokasi PHP yang sedang digunakan:
+
+```bash
+where php
+```
+
+Contoh:
+
+```text
+C:\laragon\bin\php\php-8.5.11-nts-Win32-vs17-x64\php.exe
+```
+
+---
+
+# 3. Cek Architecture dan Thread Safety
+
+Sebelum mendownload extension MongoDB, kita harus mengetahui:
+
+- Versi PHP
+- Architecture
+- Thread Safety
+
+### Cek Architecture
+
+Jalankan:
+
+```bash
+php -r "echo PHP_INT_SIZE == 8 ? 'x64' : 'x86';"
+```
+
+Jika hasilnya:
+
+```text
+x64
+```
+
+berarti PHP menggunakan architecture **64-bit**.
+
+### Cek Thread Safety
+
+Jalankan:
+
+```bash
+php -r "echo PHP_ZTS ? 'TS' : 'NTS';"
+```
+
+Jika hasilnya:
+
+```text
+NTS
+```
+
+berarti PHP menggunakan **Non Thread Safe**.
+
+### Contoh Environment
+
+Jika hasilnya:
+
+```text
+PHP 8.5
+x64
+NTS
+```
+
+maka extension MongoDB yang dibutuhkan adalah:
+
+```text
+PHP 8.5
+NTS
+x64
+```
+
+---
+
+# 4. Download MongoDB PHP Extension
+
+Download extension MongoDB untuk PHP dari PECL:
+
+**[https://pecl.php.net/package/mongodb](https://pecl.php.net/package/mongodb)**
+
+Pada halaman PECL MongoDB:
+
+1. Pilih versi MongoDB extension yang sesuai.
+2. Pilih bagian **DLL**.
+3. Cari file yang sesuai dengan PHP kamu.
+
+Untuk contoh environment ini:
+
+```text
+PHP 8.5
+NTS
+x64
+```
+
+> Jangan asal memilih DLL. Versi PHP, Thread Safety, dan Architecture harus sesuai dengan PHP yang digunakan Laragon.
+
+File yang dibutuhkan adalah:
+
+```text
+php_mongodb.dll
+```
+
+---
+
+# 5. Pasang `php_mongodb.dll`
+
+Setelah file ZIP selesai didownload:
+
+1. Extract file ZIP.
+2. Cari:
+
+```text
+php_mongodb.dll
+```
+
+3. Copy file tersebut.
+
+Kemudian buka folder extension PHP Laragon.
+
+Contoh:
+
+```text
+C:\laragon\bin\php\php-8.5.11-nts-Win32-vs17-x64\ext\
+```
+
+Paste:
+
+```text
+php_mongodb.dll
+```
+
+Sehingga hasil akhirnya kurang lebih:
+
+```text
+C:\laragon
+└── bin
+    └── php
+        └── php-8.5.11-nts-Win32-vs17-x64
+            ├── php.exe
+            ├── php.ini
+            └── ext
+                └── php_mongodb.dll
+```
+
+---
+
+# 6. Aktifkan Extension di `php.ini`
+
+Selanjutnya buka file:
+
+```text
+C:\laragon\bin\php\php-8.5.11-nts-Win32-vs17-x64\php.ini
+```
+
+Cari bagian extension atau tambahkan di bagian paling bawah:
+
+```ini
+extension=mongodb
+```
+
+Simpan file tersebut.
+
+> Jangan menambahkan `.dll` pada konfigurasi. Gunakan `extension=mongodb`.
+
+---
+
+# 7. Restart Laragon
+
+Setelah mengubah `php.ini`:
+
+1. Buka Laragon.
+2. Klik **Stop**.
+3. Kemudian klik **Start All**.
+
+Setelah itu buka **terminal baru** agar environment PHP yang digunakan kembali terbaca dengan benar.
+
+---
+
+# 8. Verifikasi Extension MongoDB
+
+Jalankan:
+
+```bash
+php -m
+```
+
+Cari:
+
+```text
+mongodb
+```
+
+Cara lebih cepat:
+
+### Git Bash
+
+```bash
+php -m | grep mongodb
+```
+
+Jika muncul:
+
+```text
+mongodb
+```
+
+berarti extension MongoDB sudah aktif.
