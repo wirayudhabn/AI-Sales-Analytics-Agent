@@ -1,14 +1,22 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Overview, Products } from './pages';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import DashboardLayout from './components/layout/DashboardLayout';
+import { IrisAI, Orders, Overview, Products } from './pages';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Overview />} />
+    <Routes>
+      <Route element={<DashboardLayout />}>
+        <Route path="/" element={<Navigate to="/overview" replace />} />
+        <Route path="/overview" element={<Overview />} />
         <Route path="/products" element={<Products />} />
-      </Routes>
-    </BrowserRouter>
+        <Route path="/orders" element={<Orders />} />
+        <Route path="/iris-ai" element={<IrisAI />} />
+        <Route
+          path="/sign-out"
+          element={<main className="px-7 py-5">Sign out belum tersedia.</main>}
+        />
+      </Route>
+    </Routes>
   );
 }
 

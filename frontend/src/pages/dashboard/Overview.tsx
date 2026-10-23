@@ -1,13 +1,6 @@
-import { useState } from "react";
-import { BarChart, Card, Header, PieChart, Sidebar } from "../../components";
+import { BarChart, Card, PieChart } from "../../components";
 
 const Overview = () => {
-    const [hide, setHide] = useState(false);
-
-    const handleClick = () => {
-        setHide(!hide);
-    }
-
     // Contoh data bulanan
     const monthData = [
         { chartItem: "Januari", value: 18000, color: "#A3BFE8" },
@@ -37,32 +30,18 @@ const Overview = () => {
     ]
 
     return (
-        <div className="flex">
-            {/* Sidebar */}
-            <Sidebar hide={hide} page={1} />
-
-            <div className="w-full">
-                {/* Header */}
-                <Header hide={hide} handleClick={handleClick} />
-
-                {/* Content */}
-                <main className="px-7 py-5 space-y-5">
-                    <div className="flex gap-4">
-                        <Card title="Total Revenue" total="Rp25.032.000" percentage="+11.01%" />
-                        <Card title="Total Revenue" total="Rp25.032.000" percentage="+11.01%" />
-                        <Card title="Total Revenue" total="Rp25.032.000" percentage="+11.01%" />
-                    </div>
-                    <BarChart title="Traffic by Month" data={monthData} maxValue={35000} />
-                    <div className="flex gap-5">
-                        <BarChart title="Traffic by Category" data={categoryData} maxValue={35000} />
-                        <PieChart
-                            title="Traffic by Year"
-                            data={yearData}
-                        />
-                    </div>
-                </main>
+        <main className="space-y-5 px-7 py-5">
+            <div className="flex gap-4">
+                <Card title="Total Revenue" total="Rp25.032.000" percentage="+11.01%" />
+                <Card title="Total Revenue" total="Rp25.032.000" percentage="+11.01%" />
+                <Card title="Total Revenue" total="Rp25.032.000" percentage="+11.01%" />
             </div>
-        </div>
+            <BarChart title="Traffic by Month" data={monthData} maxValue={35000} />
+            <div className="flex gap-5">
+                <BarChart title="Traffic by Category" data={categoryData} maxValue={35000} />
+                <PieChart title="Traffic by Year" data={yearData} />
+            </div>
+        </main>
     )
 }
 
