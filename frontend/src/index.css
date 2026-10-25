@@ -1,16 +1,65 @@
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Quicksand", sans-serif;
+  --font-body: "Quicksand", sans-serif;
+  --font-heading-4: "Quicksand", sans-serif;
+  --font-heading-6: "Quicksand", sans-serif;
+  --font-description: "Quicksand", sans-serif;
+
+  --color-bg-primary: #FAFAFA;
+  --color-accent-primary: #2563EB;
+  --color-accent-soft: #DBEAFE;
+  --color-accent-danger: #DC2626;
+  --color-text-primary: #1F2937;
+  --color-text-secondary: #4B5563;
+  --color-border: #D1D5DB;
 }
 
 body {
   font-family: var(--font-sans);
   font-weight: 500;
   background-color: #FAFAFA;
+
+  --body-font-size: 16px;
+  --body-font-weight: 500;
+  --body-letter-spacing: 0px;
+  --body-line-height: normal;
+  --body-font-style: normal;
+
+  --heading-4-font-size: 20px;
+  --heading-4-font-weight: 600;
+  --heading-4-letter-spacing: 0px;
+  --heading-4-line-height: normal;
+  --heading-4-font-style: normal;
+
+  --heading-6-font-size: 16px;
+  --heading-6-font-weight: 600;
+  --heading-6-letter-spacing: 0px;
+  --heading-6-line-height: normal;
+  --heading-6-font-style: normal;
 }
 
 .text-secondary {
   color: #4B5563;
+}
+
+.iris-chat {
+  --body-font-size: 16px;
+  --body-font-weight: 400;
+  --body-letter-spacing: 0px;
+  --body-line-height: 20px;
+  --body-font-style: normal;
+
+  --heading-6-font-size: 16px;
+  --heading-6-font-weight: 500;
+  --heading-6-letter-spacing: 0px;
+  --heading-6-line-height: 24px;
+  --heading-6-font-style: normal;
+
+  --description-font-size: 12px;
+  --description-font-weight: 400;
+  --description-letter-spacing: 0px;
+  --description-line-height: 16px;
+  --description-font-style: normal;
 }
