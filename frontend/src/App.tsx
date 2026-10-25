@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Overview, Products } from './pages';
+import DashboardLayout from './components/layout/DashboardLayout';
+import { Overview, Products, IrisAI } from './pages';
 
 function App() {
   return (
@@ -7,6 +8,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Overview />} />
         <Route path="/products" element={<Products />} />
+        <Route element={<DashboardLayout />}>
+          <Route path="/iris-ai" element={<IrisAI />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
