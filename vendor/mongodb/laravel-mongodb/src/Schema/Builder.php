@@ -1,0 +1,603 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MongoDB\Laravel\Schema;
+
+use Closure;
+use InvalidArgumentException;
+use MongoDB\Collection;
+use MongoDB\Driver\Exception\ServerException;
+use MongoDB\Laravel\Connection;
+use MongoDB\Model\CollectionInfo;
+use MongoDB\Model\IndexInfo;
+use Override;
+
+use function array_column;
+use function array_fill_keys;
+use function array_filter;
+use function array_key_exists;
+use function array_key_first;
+use function array_keys;
+use function array_map;
+use function array_merge;
+use function array_values;
+use function assert;
+use function count;
+use function current;
+use function explode;
+use function implode;
+use function in_array;
+use function is_array;
+use function is_bool;
+use function is_string;
+use function iterator_to_array;
+use function sort;
+use function sprintf;
+use function str_contains;
+use function str_ends_with;
+use function substr;
+use function trigger_error;
+use function usort;
+
+use const E_USER_DEPRECATED;
+
+/** @property Connection $connection */
+class Builder extends \Illuminate\Database\Schema\Builder
+{
+    /**
+     * Check if column exists in the collection schema.
+     *
+     * @param string $table
+     * @param string $column
+     */
+    public function hasColumn($table, $column): bool
+    {
+        return $this->hasColumns($table, [$column]);
+    }
+
+    /**
+     * Check if columns exist in the collection schema.
+     *
+     * @param string   $table
+     * @param string[] $columns
+     */
+    public function hasColumns($table, array $columns): bool
+    {
+        // The field "id" (alias of "_id") always exists in MongoDB documents
+        $columns = array_filter($columns, fn (string $column): bool => ! in_array($column, ['_id', 'id'], true));
+
+        // Any subfield named "*.id" is an alias of "*._id"
+        $columns = array_map(fn (string $column): string => str_ends_with($column, '.id') ? substr($column, 0, -3) . '._id' : $column, $columns);
+
+        if ($columns === []) {
+            return true;
+        }
+
+        $collection = $this->connection->table($table);
+
+        return $collection
+            ->where(array_fill_keys($columns, ['$exists' => true]))
+            ->project(['_id' => 1])
+            ->exists();
+    }
+
+    /**
+     * Determine if the given collection exists.
+     *
+     * @param string $name The real collection name. The connection table prefix is not applied.
+     *                     Use hasTable() for a logical collection name.
+     *
+     * @return bool
+     */
+    public function hasCollection($name)
+    {
+        $db = $this->connection->getDatabase();
+
+        $collections = iterator_to_array($db->listCollections([
+            'filter' => ['name' => $name],
+        ]), false);
+
+        return count($collections) !== 0;
+    }
+
+    /**
+     * @param string $table The logical table name. The connection table prefix is applied, as in Laravel.
+     *
+     * @inheritdoc
+     */
+    #[Override]
+    public function hasTable($table)
+    {
+        return $this->hasCollection($this->connection->getCollection($table)->getCollectionName());
+    }
+
+    /** @inheritdoc */
+    #[Override]
+    public function table($table, Closure $callback)
+    {
+        $blueprint = $this->createBlueprint($table);
+
+        if ($callback) {
+            $callback($blueprint);
+        }
+    }
+
+    /** @inheritdoc */
+    #[Override]
+    public function create($table, ?Closure $callback = null, array $options = [])
+    {
+        $blueprint = $this->createBlueprint($table);
+
+        $blueprint->create($options);
+
+        if ($callback) {
+            $callback($blueprint);
+        }
+    }
+
+    /**
+     * Create an encrypted collection and generate its missing data keys.
+     *
+     * The collection name is the logical one, the connection table prefix is
+     * applied. The method is idempotent: an existing encrypted collection is
+     * returned as is.
+     *
+     * @param  string              $collection
+     * @param  Closure|null        $callback
+     * @param  array<string,mixed> $options
+     *
+     * @return array<string,mixed>
+     *
+     * @throws InvalidArgumentException when the collection exists without encryption.
+     */
+    public function createEncrypted(string $collection, ?Closure $callback = null, array $options = []): array
+    {
+        $config = $this->connection->getConfig('driver_options.autoEncryption');
+        $fields = $this->connection->encryption()->encryptedFieldsFor($collection);
+        $realCollection = $this->connection->getCollection($collection)->getCollectionName();
+
+        $info = $this->collectionInfo($realCollection);
+        if ($info !== null) {
+            $encryptedFields = $info->getOptions()['encryptedFields'] ?? null;
+
+            if (! is_array($encryptedFields)) {
+                throw new InvalidArgumentException(sprintf('The collection "%s" already exists and is not an encrypted collection. Drop it before creating it with Queryable Encryption.', $realCollection));
+            }
+
+            return $encryptedFields;
+        }
+
+        $kmsProvider = array_key_first($config['kmsProviders']) ?: 'local';
+        $masterKey = isset($config['masterKey']) && is_array($config['masterKey']) ? $config['masterKey'] : null;
+        $clientEncryption = $this->connection->encryption()->getClientEncryption();
+
+        $resolvedMap = $this->connection->encryption()->resolveOrCreateEncryptionKeys([$collection => ['fields' => $fields]]);
+        $map = $resolvedMap[$collection];
+
+        $encryptedFields = $this->connection->getDatabase()->createEncryptedCollection(
+            $realCollection,
+            $clientEncryption,
+            $kmsProvider,
+            $masterKey,
+            [...$options, 'encryptedFields' => $map, 'keyVaultNamespace' => $config['keyVaultNamespace']],
+        );
+
+        if ($callback instanceof Closure) {
+            $callback($this->createBlueprint($collection));
+        }
+
+        return $encryptedFields;
+    }
+
+    /**
+     * Determine if the given encrypted collection exists.
+     *
+     * A collection that exists without encrypted fields is not an encrypted
+     * collection.
+     *
+     * @param string $collection
+     */
+    public function hasEncryptedCollection(string $collection): bool
+    {
+        $info = $this->collectionInfo($this->connection->getCollection($collection)->getCollectionName());
+
+        return is_array($info?->getOptions()['encryptedFields'] ?? null);
+    }
+
+    /**
+     * The registered collection, or null when it does not exist.
+     */
+    private function collectionInfo(string $name): ?CollectionInfo
+    {
+        $infos = iterator_to_array($this->connection->getDatabase()->listCollections([
+            'filter' => ['name' => $name],
+        ]), false);
+
+        return $infos[0] ?? null;
+    }
+
+    /**
+     * The collection named by a table argument.
+     *
+     * A "database.collection" name comes from getTables() or getTableListing(),
+     * which build it from the real collection names, so the connection table
+     * prefix is not applied. It is applied to a plain logical name.
+     */
+    private function collectionFor(string $table): Collection
+    {
+        if (! str_contains($table, '.')) {
+            return $this->connection->getCollection($table);
+        }
+
+        [$database, $collection] = explode('.', $table, 2);
+
+        return $this->connection->getDatabase($database)->getCollection($collection);
+    }
+
+    /**
+     * Drop the metadata collections of an encrypted collection. The server
+     * does not remove them when the encrypted collection itself is dropped, so
+     * they would otherwise leak.
+     *
+     * @param array<string,mixed> $encryptedFields
+     */
+    private function dropMetadataCollections(string $realCollection, array $encryptedFields): void
+    {
+        $database = $this->connection->getDatabase();
+
+        $database->dropCollection($encryptedFields['escCollection'] ?? 'enxcol_.' . $realCollection . '.esc');
+        $database->dropCollection($encryptedFields['ecocCollection'] ?? 'enxcol_.' . $realCollection . '.ecoc');
+    }
+
+    /** @inheritdoc */
+    #[Override]
+    public function dropIfExists($table)
+    {
+        if ($this->hasTable($table)) {
+            $this->drop($table);
+        }
+    }
+
+    /** @inheritdoc */
+    #[Override]
+    public function drop($table)
+    {
+        // Dropping an encrypted collection also drops its metadata collections,
+        // which the server leaves behind otherwise.
+        if ($this->connection->encryption()->isAutoEncryptionEnabled($table)) {
+            $map = $this->connection->getConfig('driver_options.autoEncryption.encryptedFieldsMap');
+            $this->dropMetadataCollections(
+                $this->connection->getCollection($table)->getCollectionName(),
+                is_array($map) && is_array($map[$table] ?? null) ? $map[$table] : [],
+            );
+        }
+
+        $blueprint = $this->createBlueprint($table);
+
+        $blueprint->drop();
+    }
+
+    /**
+     * @inheritdoc
+     *
+     * Drops the entire database instead of deleting each collection individually.
+     *
+     * In MongoDB, dropping the whole database is much faster than dropping collections
+     * one by one. The database will be automatically recreated when a new connection
+     * writes to it.
+     *
+     * Warning: with Queryable Encryption enabled, dropping the whole database also
+     * removes the key vault collection and every data encryption key it holds when
+     * the vault lives in this database. This is unrecoverable.
+     */
+    #[Override]
+    public function dropAllTables()
+    {
+        $this->connection->getDatabase()->drop();
+    }
+
+    /**
+     * @param string|null $schema Database name
+     *
+     * @inheritdoc
+     */
+    #[Override]
+    public function getTables($schema = null)
+    {
+        return $this->getCollectionRows('collection', $schema);
+    }
+
+    /**
+     * @param  string|null $schema Database name
+     *
+     * @inheritdoc
+     */
+    #[Override]
+    public function getViews($schema = null)
+    {
+        return $this->getCollectionRows('view', $schema);
+    }
+
+    /**
+     * @param string|null $schema
+     * @param bool        $schemaQualified If a schema is provided, prefix the collection names with the schema name
+     *
+     * @return array
+     */
+    #[Override]
+    public function getTableListing($schema = null, $schemaQualified = false)
+    {
+        $collections = [];
+
+        if ($schema === null || is_string($schema)) {
+            $collections[$schema ?? 0] = iterator_to_array($this->connection->getDatabase($schema)->listCollectionNames());
+        } elseif (is_array($schema)) {
+            foreach ($schema as $db) {
+                $collections[$db] = iterator_to_array($this->connection->getDatabase($db)->listCollectionNames());
+            }
+        }
+
+        if ($schema && $schemaQualified) {
+            $collections = array_map(fn ($db, $collections) => array_map(static fn ($collection) => $db . '.' . $collection, $collections), array_keys($collections), $collections);
+        }
+
+        $collections = array_merge(...array_values($collections));
+
+        sort($collections);
+
+        return $collections;
+    }
+
+    /**
+     * @param string $table The logical collection name. The connection table prefix is applied.
+     *                      A "database.collection" name, as returned by getTables(), selects the
+     *                      database and is the real collection name, so it is not prefixed.
+     *
+     * @inheritdoc
+     */
+    #[Override]
+    public function getColumns($table)
+    {
+        $stats = $this->collectionFor($table)->aggregate([
+            // Sample 1,000 documents to get a representative sample of the collection
+            ['$sample' => ['size' => 1_000]],
+            // Convert each document to an array of fields
+            ['$project' => ['fields' => ['$objectToArray' => '$$ROOT']]],
+            // Unwind to get one document per field
+            ['$unwind' => '$fields'],
+            // Group by field name, count the number of occurrences and get the types
+            [
+                '$group' => [
+                    '_id' => '$fields.k',
+                    'total' => ['$sum' => 1],
+                    'types' => ['$addToSet' => ['$type' => '$fields.v']],
+                ],
+            ],
+            // Get the most seen field names
+            ['$sort' => ['total' => -1]],
+            // Limit to 1,000 fields
+            ['$limit' => 1_000],
+            // Sort by field name
+            ['$sort' => ['_id' => 1]],
+        ], [
+            'typeMap' => ['array' => 'array'],
+            'allowDiskUse' => true,
+        ])->toArray();
+
+        $columns = [];
+        foreach ($stats as $stat) {
+            sort($stat->types);
+            $type = implode(', ', $stat->types);
+            $name = $stat->_id;
+            if ($name === '_id') {
+                $name = 'id';
+            }
+
+            $columns[] = [
+                'name' => $name,
+                'type_name' => $type,
+                'type' => $type,
+                'collation' => null,
+                'nullable' => $name !== 'id',
+                'default' => null,
+                'auto_increment' => false,
+                'comment' => sprintf('%d occurrences', $stat->total),
+                'generation' => $name === 'id' ? ['type' => 'objectId', 'expression' => null] : null,
+            ];
+        }
+
+        return $columns;
+    }
+
+    /**
+     * @param string $table The logical collection name. The connection table prefix is applied.
+     *                      A "database.collection" name, as returned by getTables(), selects the
+     *                      database and is the real collection name, so it is not prefixed.
+     *
+     * @inheritdoc
+     */
+    #[Override]
+    public function getIndexes($table)
+    {
+        $collection = $this->collectionFor($table);
+        $indexList = [];
+
+        $indexes = $collection->listIndexes();
+        foreach ($indexes as $index) {
+            assert($index instanceof IndexInfo);
+            $indexList[] = [
+                'name' => $index->getName(),
+                'columns' => array_keys($index->getKey()),
+                'primary' => $index->getKey() === ['_id' => 1],
+                'type' => match (true) {
+                    $index->isText() => 'text',
+                    $index->is2dSphere() => '2dsphere',
+                    $index->isTtl() => 'ttl',
+                    default => null,
+                },
+                'unique' => $index->isUnique(),
+            ];
+        }
+
+        try {
+            $indexes = $collection->listSearchIndexes(['typeMap' => ['root' => 'array', 'array' => 'array', 'document' => 'array']]);
+            foreach ($indexes as $index) {
+                // Status 'DOES_NOT_EXIST' means the index has been dropped but is still in the process of being removed
+                if ($index['status'] === 'DOES_NOT_EXIST') {
+                    continue;
+                }
+
+                $indexList[] = [
+                    'name' => $index['name'],
+                    'columns' => match ($index['type']) {
+                        'search' => array_merge(
+                            $index['latestDefinition']['mappings']['dynamic'] ? ['dynamic'] : [],
+                            array_keys($index['latestDefinition']['mappings']['fields'] ?? []),
+                        ),
+                        'vectorSearch' => array_column($index['latestDefinition']['fields'], 'path'),
+                    },
+                    'type' => $index['type'],
+                    'primary' => false,
+                    'unique' => false,
+                ];
+            }
+        } catch (ServerException $exception) {
+            if (! self::isAtlasSearchNotSupportedException($exception)) {
+                throw $exception;
+            }
+        }
+
+        return $indexList;
+    }
+
+    #[Override]
+    public function getForeignKeys($table)
+    {
+        return [];
+    }
+
+    /**
+     * @return Blueprint
+     *
+     * @inheritdoc
+     */
+    #[Override]
+    protected function createBlueprint($table, ?Closure $callback = null)
+    {
+        return new Blueprint($this->connection, $table);
+    }
+
+    /**
+     * Get collection.
+     *
+     * @param string $name The real collection name. The connection table prefix is not applied.
+     *
+     * @return bool|CollectionInfo
+     */
+    public function getCollection($name)
+    {
+        $db = $this->connection->getDatabase();
+
+        $collections = iterator_to_array($db->listCollections([
+            'filter' => ['name' => $name],
+        ]), false);
+
+        return count($collections) ? current($collections) : false;
+    }
+
+    /**
+     * Get all the collections names for the database.
+     *
+     * @deprecated
+     *
+     * @return array
+     */
+    protected function getAllCollections()
+    {
+        trigger_error(sprintf('Since mongodb/laravel-mongodb:5.4, Method "%s()" is deprecated without replacement.', __METHOD__), E_USER_DEPRECATED);
+
+        $collections = [];
+        foreach ($this->connection->getDatabase()->listCollections() as $collection) {
+            $collections[] = $collection->getName();
+        }
+
+        return $collections;
+    }
+
+    /** @internal */
+    public static function isAtlasSearchNotSupportedException(ServerException $e): bool
+    {
+        return in_array($e->getCode(), [
+            59,      // MongoDB 4 to 6, 7-community: no such command: 'createSearchIndexes'
+            40324,   // MongoDB 4 to 6: Unrecognized pipeline stage name: '$listSearchIndexes'
+            115,     // MongoDB 7-ent: Search index commands are only supported with Atlas.
+            6047401, // MongoDB 7: $listSearchIndexes stage is only allowed on MongoDB Atlas
+            31082,   // MongoDB 8: Using Atlas Search Database Commands and the $listSearchIndexes aggregation stage requires additional configuration.
+        ], true);
+    }
+
+    /** @param string|null $schema Database name */
+    private function getCollectionRows(string $collectionType, $schema = null)
+    {
+        $db = $this->connection->getDatabase($schema);
+        $collections = [];
+
+        foreach ($db->listCollections() as $collectionInfo) {
+            $collectionName = $collectionInfo->getName();
+
+            if ($collectionInfo->getType() !== $collectionType) {
+                continue;
+            }
+
+            $options = $collectionInfo->getOptions();
+            $collation = $options['collation'] ?? [];
+
+            // Aggregation is not supported on views
+            $stats = $collectionType !== 'view' ? $db->getCollection($collectionName)->aggregate([
+                ['$collStats' => ['storageStats' => ['scale' => 1]]],
+                ['$project' => ['storageStats.totalSize' => 1]],
+            ])->toArray() : null;
+
+            $collections[] = [
+                'name' => $collectionName,
+                'schema' => $db->getDatabaseName(),
+                'schema_qualified_name' => $db->getDatabaseName() . '.' . $collectionName,
+                'size' => $stats[0]?->storageStats?->totalSize ?? null,
+                'comment' => null,
+                'collation' => $this->collationToString($collation),
+                'engine' => null,
+            ];
+        }
+
+        usort($collections, fn ($a, $b) => $a['name'] <=> $b['name']);
+
+        return $collections;
+    }
+
+    private function collationToString(array $collation): string
+    {
+        $map = [
+            'locale' => 'l',
+            'strength' => 's',
+            'caseLevel' => 'cl',
+            'caseFirst' => 'cf',
+            'numericOrdering' => 'no',
+            'alternate' => 'a',
+            'maxVariable' => 'mv',
+            'normalization' => 'n',
+            'backwards' => 'b',
+        ];
+
+        $parts = [];
+        foreach ($collation as $key => $value) {
+            if (array_key_exists($key, $map)) {
+                $shortKey = $map[$key];
+                $shortValue = is_bool($value) ? ($value ? '1' : '0') : $value;
+                $parts[] = $shortKey . '=' . $shortValue;
+            }
+        }
+
+        return implode(';', $parts);
+    }
+}
