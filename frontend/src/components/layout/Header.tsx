@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react";
 
 const Header = ({ hide, handleClick }: { hide: boolean; handleClick: () => void }) => {
     return (
-        <header className="px-7 py-5 flex justify-between items-center h-fit border-b border-gray-300 sticky top-0 bg-neutral-50 font-semibold">
+        <header className="px-7 py-5 gap-2 flex justify-between items-center h-fit border-b border-gray-300 sticky top-0 bg-neutral-50 font-semibold">
             <button className="cursor-pointer" onClick={handleClick}><Icon className="text-xl" icon={hide ? "f7:sidebar-left" : "iconoir:sidebar-collapse"} /></button>
             
             {/* Search Bar */}
