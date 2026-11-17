@@ -1,6 +1,7 @@
 import Sidebar from "./layout/Sidebar";
+import SidebarCashier from "./layout/SidebarCashier";
 import Header from "./layout/Header";
 import Table from "./layout/Table";
 import type { TableColumn } from "./layout/Table";
 
-export { Sidebar, Header, Table, type TableColumn };
+export { Sidebar, Header, Table, type TableColumn, SidebarCashier };

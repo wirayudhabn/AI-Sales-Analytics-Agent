@@ -14,7 +14,7 @@ const Sidebar = ({ hide, page }: { hide: boolean; page: number }) => {
                 <Link className={`w-full flex items-center gap-2 p-2 rounded-lg ${page === 3 ? "md:bg-blue-100 text-blue-600" : ""}`} to={'/orders'}><Icon className="text-xl" icon="icon-park-outline:transaction-order" /> <span className="hidden md:inline">Orders</span></Link>
                 <Link className={`w-full flex items-center gap-2 p-2 rounded-lg ${page === 4 ? "md:bg-blue-100 text-blue-600" : ""}`} to={'/iris-ai'}><Icon className="text-xl" icon="mage:robot-happy" /> <span className="hidden md:inline">Iris AI</span></Link>
             </div>
-            <Link className="w-full flex items-center gap-2 p-2 rounded-lg text-red-600" to={'/'}><Icon className="text-xl" icon="boxicons:arrow-out-left-square-half-filled" /> <span className="hidden md:inline">Sign Out</span></Link>
+            <Link className="w-full flex items-center gap-2 p-2 rounded-lg text-red-600" to={'/login'}><Icon className="text-xl" icon="boxicons:arrow-out-left-square-half-filled" /> <span className="hidden md:inline">Sign Out</span></Link>
         </nav>
     )
 }
