@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 
 const Sidebar = ({ hide, page }: { hide: boolean; page: number }) => {
     return(
-        <nav className={`p-4 flex flex-col gap-3 w-56 h-dvh border-r border-gray-300 sticky top-0 font-semibold ${hide ? "-ml-56" : "ml-0"} transition-all`}>
+        <nav className={`shrink-0 p-2 md:p-4 flex flex-col gap-3 w-[4.5rem] md:w-56 h-dvh border-r border-gray-300 sticky top-0 font-semibold ${hide ? "-ml-[4.5rem] md:-ml-56" : "ml-0"} transition-all`}>
             <div className="p-2 flex items-center gap-2">
                 <img src="/logo.png" alt="Logo Aplikasi" className="w-7 h-7" />
                 <h2 className="text-blue-600 hidden md:inline">Iris</h2>
