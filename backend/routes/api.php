@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProductController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -15,5 +16,6 @@ Route::prefix('v1')->group(function () {
     // Protected (Bisa diakses role owner & cashier)
     Route::middleware('jwt.verify')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+        Route::get('/products', [ProductController::class, 'index']);
     });
 });
