@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTFactory;
 
@@ -52,5 +53,23 @@ class AuthController extends Controller
         'updatedAt' => $user->updatedAt,
       ],
     ], 200);
+  }
+
+  public function logout()
+  {
+    try {
+      // Mengambil token dari header Authorization: Bearer <token> lalu mem-blacklist-nya
+      JWTAuth::invalidate(JWTAuth::getToken());
+
+      return response()->json([
+        'success' => true,
+        'message' => 'Logout berhasil',
+      ], 200);
+    } catch (JWTException $e) {
+      return response()->json([
+        'success' => false,
+        'message' => 'Unauthorized, token tidak valid atau sudah kedaluwarsa',
+      ], 401);
+    }
   }
 }
