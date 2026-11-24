@@ -3,13 +3,14 @@
 // import reactLogo from './assets/react.svg'
 // import viteLogo from './assets/vite.svg'
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { IrisAI, Orders, Overview, Products } from './pages';
+import { IrisAI, Login, Orders, Overview, Products } from './pages';
 
 function App() {
 
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/login" element={<Login />} />
         <Route index element={<Overview />} />
         <Route path="/products" element={<Products />} />
         <Route path="/orders" element={<Orders />} />
