@@ -71,7 +71,7 @@ const History = () => {
 
             {/* Content */}
             <main className="w-full px-7 py-5 space-y-5">
-                <p className="text-lg font-medium">Riwayat</p>
+                <h1 className="text-xl font-semibold">Riwayat</h1>
 
                 <Table<Transaction>
                     columns={columns}
