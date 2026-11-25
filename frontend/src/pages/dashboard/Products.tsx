@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Header, Sidebar, Table, TableColumn } from "../../components";
+import { Icon } from "@iconify/react";
 
 type Product = {
     id: string;
@@ -91,15 +92,15 @@ const Products = () => {
 
                 {/* Content */}
                 <main className="px-7 py-5 space-y-5">
-                    <div className="flex items-center justify-between">
-                        <p className="text-lg font-medium">Products</p>
+                    <div className="mb-2 flex items-center justify-between">
+                        <h1 className="text-xl font-semibold">Products</h1>
                         <button
                             type="button"
-                            className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+                            className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                            // TODO: buka form tambah product
+                            onClick={() => console.log("add product")}
                         >
-                            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                                <path d="M12 5v14M5 12h14" />
-                            </svg>
+                            <Icon className="text-lg" icon="akar-icons:plus" />
                             Add Product
                         </button>
                     </div>
